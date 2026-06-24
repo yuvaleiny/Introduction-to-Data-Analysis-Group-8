@@ -1,20 +1,13 @@
 ```{r}
 
-# התקנת חבילות נדרשות (אם חסר, יש להריץ פעם אחת):
-# install.packages(c("tidyverse", "lubridate", "zoo"))
-
 library(tidyverse)
 library(lubridate)
-library(zoo) # עבור ממוצעים נעים (Rolling Mean)
+library(zoo) 
 
-# ======================================================================
-# 0. הגדרות ונתוני בסיס
-# ======================================================================
 CSV_PATH <- "C:/Users/mikab/OneDrive/Desktop/second year/4 semester/data analysis/FinalSentiment.csv"
 SMOOTH_WEEKS <- 4
 OCT7 <- ymd("2023-10-07")
 
-# טבלת אירועים (ממוספרת)
 events <- tibble(
   date = ymd(c("2023-10-07", "2023-11-24", "2024-04-14", "2024-09-27", "2024-10-01", "2025-01-19")),
   label = c("7/10 start", "hostages deal", "Iran attack 1", "Nasrallah", "Iran attack 2", "ceasefire")
@@ -23,7 +16,6 @@ events <- tibble(
   mutate(num = row_number(),
          full_label = paste0(num, ". ", label))
 
-# פונקציית עזר להוספת קווי אירועים לגרפים של ggplot
 add_events_layer <- function(gg) {
   gg + 
     geom_vline(data = events, aes(xintercept = date), color = "grey", linetype = "dashed", alpha = 0.6) +
@@ -31,9 +23,6 @@ add_events_layer <- function(gg) {
               vjust = 1.5, hjust = -0.2, color = "dimgrey", size = 3, fontface = "bold", inherit.aes = FALSE)
 }
 
-# ======================================================================
-# 1. טעינת הנתונים והכנתם (במקום load_and_filter מ-Python)
-# ======================================================================
 df <- read_csv(CSV_PATH, show_col_types = FALSE) %>%
   rename(source_name = 1) %>% # מניח שהעמודה הראשונה היא שם האתר
   mutate(
@@ -49,7 +38,6 @@ df <- read_csv(CSV_PATH, show_col_types = FALSE) %>%
   ) %>%
   filter((פוליטיקה == "כן" | בטחון == "כן"), !is.na(date), !is.na(_val))
 
-# יצירת סדרת זמן שבועית (פורמט ארוך - Tidy)
 weekly_df <- df %>%
   mutate(week_bucket = floor_date(date, "week")) %>%
   group_by(source_name, week_bucket) %>%
@@ -63,13 +51,7 @@ weekly_df <- df %>%
   mutate(smoothed_sentiment = rollmeanr(sentiment, k = SMOOTH_WEEKS, fill = NA)) %>%
   ungroup()
 
-# ======================================================================
-# 2. פונקציות השרטוט (מקבילות לקובץ ה-Extra Plots)
-# ======================================================================
-
-# -- 1. Deviation from mean (סטייה מהממוצע) --
 plot_deviation <- function(data) {
-  # חישוב ממוצע שבועי כללי לכל האתרים
   mean_weekly <- data %>%
     group_by(week_bucket) %>%
     summarise(mean_all = mean(sentiment, na.rm = TRUE), .groups = "drop")
@@ -92,7 +74,6 @@ plot_deviation <- function(data) {
   ggsave("05_deviation_R.png", plot = p, width = 14, height = 6.5, dpi = 130)
 }
 
-# -- 2. Heatmap (מפת חום אתר מול חודש) --
 plot_heatmap <- function(data_raw) {
   heat_data <- data_raw %>%
     mutate(month = floor_date(date, "month")) %>%
@@ -112,7 +93,6 @@ plot_heatmap <- function(data_raw) {
   ggsave("06_heatmap_R.png", plot = p, width = 12, height = 5, dpi = 130)
 }
 
-# -- 3. Before/After 7.10 (עמודות מקובצות) --
 plot_before_after <- function(data_raw) {
   ba_data <- data_raw %>%
     mutate(period = if_else(date < OCT7, "before 7/10", "after 7/10")) %>%
@@ -130,7 +110,6 @@ plot_before_after <- function(data_raw) {
   ggsave("07_before_after_oct7_R.png", plot = p, width = 10, height = 6, dpi = 130)
 }
 
-# -- 4. פוליטיקה מול בטחון --
 plot_politics_vs_security <- function(data_raw) {
   pol_sec <- data_raw %>%
     mutate(week_bucket = floor_date(date, "week")) %>%
@@ -160,7 +139,6 @@ plot_politics_vs_security <- function(data_raw) {
   ggsave("08_politics_vs_security_R.png", plot = p, width = 14, height = 6, dpi = 130)
 }
 
-# -- 5. הרכב חיובי/ניטרלי/שלילי (Stacked Area) --
 plot_composition <- function(data_raw) {
   comp_data <- data_raw %>%
     mutate(
@@ -189,7 +167,6 @@ plot_composition <- function(data_raw) {
   ggsave("09_composition_R.png", plot = p, width = 14, height = 8, dpi = 130)
 }
 
-# -- 6. עוצמת כיסוי (Coverage Volume) --
 plot_coverage <- function(data_weekly) {
   p <- ggplot(data_weekly, aes(x = week_bucket, y = rollmeanr(n_articles, k=SMOOTH_WEEKS, fill=NA), color = source_name)) +
     geom_line(size = 1) +
@@ -200,9 +177,6 @@ plot_coverage <- function(data_weekly) {
   ggsave("11_coverage_volume_R.png", plot = p, width = 14, height = 6, dpi = 130)
 }
 
-# ======================================================================
-# הרצת הפונקציות (Main)
-# ======================================================================
 plot_deviation(weekly_df)
 plot_heatmap(df)
 plot_before_after(df)
