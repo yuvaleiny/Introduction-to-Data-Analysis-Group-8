@@ -1,13 +1,3 @@
-הבנתי, המגבלה הזו אפילו מקלה עלינו. אם מותר לך להשתמש אך ורק ב-`tidyverse` (שכולל את `dplyr`, `tidyr`, `ggplot2`, `readr`, `lubridate`) וב-`data.table`, נסיר גם את החבילות החיצוניות האחרות שהיו בקוד: `forecast` ו-`gridExtra`.
-
-מאחר שאי אפשר להשתמש ב-`forecast` עבור מודל ה-ARIMA וב-`gridExtra` לחיבור הגרפים, נבצע את השינויים הבאים:
-
-1. **חיזוי ARIMA:** נשתמש בפונקציה המובנית `arima()` של Base R, ונחשב את רווח הסמך ($95\%$) ידנית בעזרת השגיאה הסטנדרטית (Standard Error).
-2. **חיבור גרפים:** במקום `gridExtra`, נשמור כל גרף אירוע כקובץ נפרד (או נשתמש ב-`facet_wrap` המובנה של `ggplot2` שמגיע מ-`tidyverse`).
-
-הנה הקוד המעודכן, המבוסס **אך ורק** על החבילות שהגדרת:
-
-```R
 required_packages <- c("tidyverse", "data.table")
 new_packages <- required_packages[!(required_packages %in% installed.packages()[,"Package"])]
 if(length(new_packages)) install.packages(new_packages)
@@ -289,5 +279,3 @@ plot_arima_vs_reality(wide_data, site = first_site_name, event_date_str = "2023-
 plot_all_events_impact(wide_data)
 
 cat("\n--- All R visualizations generated successfully using ONLY tidyverse! ---\n")
-
-```
