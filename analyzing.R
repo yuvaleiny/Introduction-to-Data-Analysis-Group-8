@@ -2,7 +2,7 @@ library(tidyverse)
 library(lubridate)
 
 
-FILE_PATH <- "C:\\Users\\rifre\\Desktop\\DataFinished.csv"
+FILE_PATH <- "C:/Users/mikab/OneDrive/Desktop/second year/4 semester/data analysis/project/DataFinished.csv"
 SMOOTH_WEEKS <- 4
 MIN_ARTICLES <- 3
 
@@ -36,10 +36,10 @@ get_sentiment_val <- function(label) {
 df_clean <- df %>%
   mutate(
     date_parsed = dmy(date),
-    
+   
     is_pol = suppressWarnings(as.logical(Political)),
     is_sec = suppressWarnings(as.logical(Security)),
-    
+   
     val = get_sentiment_val(SentimentLabel),
     conf = as.numeric(ConfidenceScore)
   ) %>%
@@ -139,32 +139,32 @@ analyze_event_impact <- function(data, event_name, event_date_str, window_days =
   e_date <- ymd(event_date_str)
   start_date <- e_date - days(window_days)
   end_date <- e_date + days(window_days)
-  
+ 
   df_event <- data %>%
     filter(date_parsed >= start_date & date_parsed <= end_date) %>%
     mutate(period = factor(ifelse(date_parsed < e_date, "before", "after"), levels = c("before", "after")))
-  
+ 
   n_before <- sum(df_event$period == "before")
   n_after <- sum(df_event$period == "after")
-  
+ 
   cat("\n======================================================\n")
   cat(sprintf("--- בדיקת מובהקות: %s (%s) ---\n", event_name, event_date_str))
-  
+ 
   if(n_before < 30 | n_after < 30) {
     cat("אין מספיק נתונים לבדיקה סטטיסטית תקינה סביב תאריך זה.\n")
     return(NULL)
   }
-  
+ 
   t_res <- t.test(val ~ period, data = df_event)
   mean_before <- mean(df_event$val[df_event$period == "before"])
   mean_after <- mean(df_event$val[df_event$period == "after"])
-  
+ 
   cat(sprintf("טווח זמנים: %d ימים לפני ואחרי\n", window_days))
   cat(sprintf("תקופה 1 (לפני): ממוצע %.3f | N = %d\n", mean_before, n_before))
   cat(sprintf("תקופה 2 (אחרי): ממוצע %.3f | N = %d\n", mean_after, n_after))
   cat(sprintf("הפרש ממוצעים: %.3f\n", mean_before - mean_after))
   cat("----------------------------------------\n")
-  
+ 
   if(t_res$p.value < 0.001) {
     cat("P-value: < 0.001 (מובהק סטטיסטית ברמה גבוהה מאוד!)\n")
   } else if (t_res$p.value < 0.05) {
