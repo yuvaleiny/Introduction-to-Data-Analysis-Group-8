@@ -1,12 +1,10 @@
 import csv
 from transformers import pipeline
 
-# override word lists
 negativeWords = ["נהרג", "נהרגו", "הרוגים"]
 positiveWords = ["הצלחה", "ניצחון", "זכיה"]
 
 
-# check if word in text
 def hasKeywords(textToCheck, wordList):
     for word in wordList:
         if word in textToCheck:
@@ -14,15 +12,11 @@ def hasKeywords(textToCheck, wordList):
     return False
 
 
-# load sentiment model
 print("loading sentiment model...")
 sentimentPipeline = pipeline("sentiment-analysis", model="avichr/heBERT_sentiment_analysis",
                              tokenizer="avichr/heBERT_sentiment_analysis")
 print("model ready!")
 
-# ==========================================
-# נתיבים מעודכנים ויחסיים!
-# ==========================================
 inputPath = r"C:\Users\mikab\OneDrive\Desktop\second year\4 semester\data analysis\FilteredData.csv"
 outputPath = r"C:\Users\mikab\OneDrive\Desktop\second year\4 semester\data analysis\FinalSentiment.csv"
 
@@ -32,7 +26,6 @@ with open(inputPath, mode='r', encoding='utf-8-sig') as inFile, \
     csvReader = csv.reader(inFile)
     csvWriter = csv.writer(outFile)
 
-    # read header and add new columns
     headerRow = next(csvReader)
     headerRow.append("SentimentLabel")
     headerRow.append("ConfidenceScore")
@@ -46,10 +39,8 @@ with open(inputPath, mode='r', encoding='utf-8-sig') as inFile, \
             headlineText = row[1]
             authorName = row[2]
 
-            # build context string
             combinedContext = "כתב: " + authorName + " כותרת: " + headlineText
 
-            # check manual overrides first
             isManualNegative = hasKeywords(combinedContext, negativeWords)
             isManualPositive = hasKeywords(combinedContext, positiveWords)
 
@@ -60,20 +51,17 @@ with open(inputPath, mode='r', encoding='utf-8-sig') as inFile, \
                 sentimentLabel = "positive"
                 modelScore = 1.0
             else:
-                # run model if no manual words found
                 shortContext = combinedContext[:500]
                 modelResult = sentimentPipeline(shortContext)
                 sentimentLabel = modelResult[0]['label']
                 modelScore = modelResult[0]['score']
 
-            # save results to row
             row.append(sentimentLabel)
             row.append(round(modelScore, 3))
 
             csvWriter.writerow(row)
             analyzedRows += 1
 
-            # print progress
             if analyzedRows % 50 == 0:
                 print(f"analyzed {analyzedRows} articles")
 
