@@ -1,12 +1,21 @@
-```{r}
-
 library(tidyverse)
 library(lubridate)
-library(zoo) 
 
 CSV_PATH <- "C:/Users/mikab/OneDrive/Desktop/second year/4 semester/data analysis/FinalSentiment.csv"
 SMOOTH_WEEKS <- 4
 OCT7 <- ymd("2023-10-07")
+
+# --- פונקציית עזר להחלפת zoo::rollmeanr (ממוצע נע ימני) ---
+roll_mean_base <- function(x, k) {
+  n <- length(x)
+  res <- rep(NA, n)
+  if (n < k) return(res)
+  for(i in k:n) {
+    res[i] <- mean(x[(i - k + 1):i], na.rm = TRUE)
+  }
+  return(res)
+}
+# --------------------------------------------------------
 
 events <- tibble(
   date = ymd(c("2023-10-07", "2023-11-24", "2024-04-14", "2024-09-27", "2024-10-01", "2025-01-19")),
@@ -24,13 +33,13 @@ add_events_layer <- function(gg) {
 }
 
 df <- read_csv(CSV_PATH, show_col_types = FALSE) %>%
-  rename(source_name = 1) %>% # מניח שהעמודה הראשונה היא שם האתר
+  rename(source_name = 1) %>% 
   mutate(
-    date = dmy(date), # התאמה לפורמט ישראלי, ייתכן שתצטרך לשנות ל-ymd אם זה אמריקאי
+    date = dmy(date), 
     _val = case_when(
-      tolower(SentimentLabel) %in% c("positive", "pos", "חיובי") ~ 1,
-      tolower(SentimentLabel) %in% c("neutral", "neu", "ניטרלי") ~ 0,
-      tolower(SentimentLabel) %in% c("negative", "neg", "שלילי") ~ -1,
+      tolower(SentimentLabel) %in= c("positive", "pos", "חיובי") ~ 1,
+      tolower(SentimentLabel) %in= c("neutral", "neu", "ניטרלי") ~ 0,
+      tolower(SentimentLabel) %in= c("negative", "neg", "שלילי") ~ -1,
       TRUE ~ NA_real_
     ),
     ConfidenceScore = replace_na(ConfidenceScore, 0),
@@ -48,7 +57,7 @@ weekly_df <- df %>%
   ) %>%
   filter(n_articles >= 3) %>%
   group_by(source_name) %>%
-  mutate(smoothed_sentiment = rollmeanr(sentiment, k = SMOOTH_WEEKS, fill = NA)) %>%
+  mutate(smoothed_sentiment = roll_mean_base(sentiment, k = SMOOTH_WEEKS)) %>%
   ungroup()
 
 plot_deviation <- function(data) {
@@ -60,11 +69,12 @@ plot_deviation <- function(data) {
     left_join(mean_weekly, by = "week_bucket") %>%
     mutate(deviation = sentiment - mean_all) %>%
     group_by(source_name) %>%
-    mutate(smooth_dev = rollmeanr(deviation, k = SMOOTH_WEEKS, fill = NA))
+    mutate(smooth_dev = roll_mean_base(deviation, k = SMOOTH_WEEKS)) %>%
+    ungroup()
   
   p <- ggplot(data_dev, aes(x = week_bucket, y = smooth_dev, color = source_name)) +
-    geom_hline(yintercept = 0, color = "black", size = 1, alpha = 0.6) +
-    geom_line(size = 1) +
+    geom_hline(yintercept = 0, color = "black", linewidth = 1, alpha = 0.6) +
+    geom_line(linewidth = 1) +
     add_events_layer() +
     labs(title = "Systematic bias: each site minus the cross-site average",
          y = "Deviation", x = "Date") +
@@ -122,14 +132,14 @@ plot_politics_vs_security <- function(data_raw) {
       .groups = "drop"
     ) %>%
     mutate(
-      smooth_pol = rollmeanr(politics, k = SMOOTH_WEEKS, fill = NA),
-      smooth_sec = rollmeanr(security, k = SMOOTH_WEEKS, fill = NA)
+      smooth_pol = roll_mean_base(politics, k = SMOOTH_WEEKS),
+      smooth_sec = roll_mean_base(security, k = SMOOTH_WEEKS)
     ) %>%
     pivot_longer(cols = c(smooth_pol, smooth_sec), names_to = "category", values_to = "tone")
   
   p <- ggplot(pol_sec, aes(x = week_bucket, y = tone, color = category)) +
     geom_hline(yintercept = 0, color = "black", alpha = 0.5) +
-    geom_line(size = 1.2) +
+    geom_line(linewidth = 1.2) +
     scale_color_manual(values = c("smooth_pol" = "#6a51a3", "smooth_sec" = "#e6550d"), 
                        labels = c("Politics", "Security")) +
     add_events_layer() +
@@ -151,7 +161,7 @@ plot_composition <- function(data_raw) {
     ungroup() %>%
     group_by(source_name, label) %>%
     arrange(week_bucket) %>%
-    mutate(smooth_prop = rollmeanr(prop, k = SMOOTH_WEEKS, fill = NA)) %>%
+    mutate(smooth_prop = roll_mean_base(prop, k = SMOOTH_WEEKS)) %>%
     ungroup() %>%
     filter(!is.na(smooth_prop))
   
@@ -168,8 +178,14 @@ plot_composition <- function(data_raw) {
 }
 
 plot_coverage <- function(data_weekly) {
-  p <- ggplot(data_weekly, aes(x = week_bucket, y = rollmeanr(n_articles, k=SMOOTH_WEEKS, fill=NA), color = source_name)) +
-    geom_line(size = 1) +
+  # חישוב הממוצע הנע בתוך ה-pipeline באמצעות הפונקציה החדשה
+  data_smoothed <- data_weekly %>%
+    group_by(source_name) %>%
+    mutate(smoothed_articles = roll_mean_base(n_articles, k = SMOOTH_WEEKS)) %>%
+    ungroup()
+
+  p <- ggplot(data_smoothed, aes(x = week_bucket, y = smoothed_articles, color = source_name)) +
+    geom_line(linewidth = 1) +
     add_events_layer() +
     labs(title = "Coverage volume (articles per week, smoothed)", y = "# articles / week", x = "") +
     theme_minimal()
@@ -177,6 +193,7 @@ plot_coverage <- function(data_weekly) {
   ggsave("11_coverage_volume_R.png", plot = p, width = 14, height = 6, dpi = 130)
 }
 
+# הרצה של הפונקציות
 plot_deviation(weekly_df)
 plot_heatmap(df)
 plot_before_after(df)
@@ -185,7 +202,3 @@ plot_composition(df)
 plot_coverage(weekly_df)
 
 print("Finished! All plots saved as PNGs in the working directory.")
-
-
-```
-
